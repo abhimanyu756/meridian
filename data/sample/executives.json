@@ -1,0 +1,78 @@
+[
+  {
+    "person_id": "exec-001",
+    "full_name": "Viktor Oleg Marchenko",
+    "aliases": ["Victor Marchenko", "V.O. Marchenko"],
+    "current_entity_id": "demo-001",
+    "current_title": "Chief Executive Officer",
+    "employment_history": [
+      {
+        "entity_id": "demo-001",
+        "entity_name": "Nexus Global Holdings Ltd",
+        "title": "CEO",
+        "start_date": "2019-03-15",
+        "end_date": null,
+        "outcome": null
+      },
+      {
+        "entity_id": "hist-001",
+        "entity_name": "Meridian Capital Partners",
+        "title": "Managing Director",
+        "start_date": "2015-01-01",
+        "end_date": "2019-01-01",
+        "outcome": "company_failed"
+      },
+      {
+        "entity_id": "hist-002",
+        "entity_name": "Eastern European Investment Fund",
+        "title": "Director",
+        "start_date": "2010-01-01",
+        "end_date": "2014-12-31",
+        "outcome": "resigned"
+      }
+    ],
+    "nationalities": ["Ukrainian", "Cypriot"],
+    "countries_of_residence": ["Cyprus", "UAE"],
+    "is_pep": false,
+    "is_sanctioned": false,
+    "risk_score": 7.5,
+    "risk_flags": [
+      "Previously led company that failed with investor losses",
+      "Dual nationality in high-risk jurisdictions",
+      "Residence in UAE (cash economy)"
+    ],
+    "bio_summary": "Former managing director at Meridian Capital Partners, which collapsed in 2019 with $45M investor losses.",
+    "data_sources": ["LinkedIn", "Corporate Filings"],
+    "ingested_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "person_id": "exec-002",
+    "full_name": "Anastasia Kovalenko",
+    "aliases": ["A. Kovalenko"],
+    "current_entity_id": "demo-001",
+    "current_title": "Chief Financial Officer",
+    "employment_history": [
+      {
+        "entity_id": "demo-001",
+        "entity_name": "Nexus Global Holdings Ltd",
+        "title": "CFO",
+        "start_date": "2019-06-01",
+        "end_date": null,
+        "outcome": null
+      }
+    ],
+    "nationalities": ["Russian"],
+    "countries_of_residence": ["UAE", "Russia"],
+    "is_pep": false,
+    "is_sanctioned": false,
+    "risk_score": 6.0,
+    "risk_flags": [
+      "Russian national",
+      "UAE residence",
+      "Limited public profile for senior CFO role"
+    ],
+    "bio_summary": "CFO with limited verifiable professional history prior to Nexus appointment.",
+    "data_sources": ["Corporate Filings"],
+    "ingested_at": "2024-01-01T00:00:00Z"
+  }
+]
