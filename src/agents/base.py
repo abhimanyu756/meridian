@@ -90,22 +90,24 @@ class BaseAgent(ABC):
         raise Exception(f"Gemini rate limit exceeded after {max_retries} retries")
 
     async def _run_esql(self, query: str) -> list[dict]:
-        """Execute an ES|QL query and return rows as list of dicts."""
+        """Execute an ES|QL query and return rows as list of dicts. Returns [] on error."""
         try:
             result = await self.es.esql.query(body={"query": query})
             columns = [col["name"] for col in result.get("columns", [])]
             rows = result.get("values", [])
             return [dict(zip(columns, row)) for row in rows]
         except Exception as e:
-            return [{"error": str(e)}]
+            print(f"  [{self.name}] ES|QL query error (non-fatal): {e}")
+            return []
 
     async def _search(self, index: str, body: dict) -> list[dict]:
-        """Run an Elasticsearch search and return hits."""
+        """Run an Elasticsearch search and return hits. Returns [] on error."""
         try:
             result = await self.es.search(index=index, body=body)
             return [hit["_source"] for hit in result["hits"]["hits"]]
         except Exception as e:
-            return [{"error": str(e)}]
+            print(f"  [{self.name}] Search error (non-fatal): {e}")
+            return []
 
     async def _knn_search(self, index: str, vector: list[float], field: str, k: int = 5) -> list[dict]:
         """Run a kNN vector search."""

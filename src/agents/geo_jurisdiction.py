@@ -87,6 +87,28 @@ class GeoJurisdictionAgent(BaseAgent):
                 },
             )
 
+            # Step 2b: Fallback — search entities directly if ES|QL returned nothing
+            if not geo_rows:
+                direct_entities = await self._search(
+                    settings.index_entities,
+                    {
+                        "query": {
+                            "bool": {
+                                "should": [
+                                    {"match": {"name": target}},
+                                    {"term": {"parent_entity_id": entity_id}} if entity_id else {"match_all": {}},
+                                ]
+                            }
+                        },
+                        "size": 50,
+                    },
+                )
+                for ent in direct_entities:
+                    jur = ent.get("jurisdiction", "")
+                    cc = ent.get("country_code", "")
+                    if jur or cc:
+                        geo_rows.append({"jurisdiction": jur, "country_code": cc, "entity_count": 1})
+
             # Step 3: Cross-reference with risk lists
             all_jurisdictions = [row.get("jurisdiction", "") for row in geo_rows]
             high_risk_found = {

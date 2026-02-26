@@ -64,25 +64,30 @@ class SentimentAgent(BaseAgent):
                 },
             )
 
-            # Step 4: Detect geo concentration
-            geo_breakdown = await self._search(
+            # Step 4: Get recent positive articles too for balance
+            positive_news = await self._search(
                 settings.index_news,
                 {
-                    "query": {"match": {"entity_names": target}},
-                    "aggs": {
-                        "by_country": {
-                            "terms": {"field": "country_code", "size": 10}
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"match": {"entity_names": target}},
+                                {"term": {"sentiment_label": "positive"}},
+                            ]
                         }
                     },
-                    "size": 0,
+                    "sort": [{"published_at": {"order": "desc"}}],
+                    "size": 5,
                 },
             )
 
             sentiment_data = {
                 "company": target,
-                "sentiment_trend_1yr": trend_1yr,
-                "sentiment_trend_5yr": trend_5yr[:12],
-                "volume_spike_analysis": spike_data,
+                "sentiment_trend_1yr": trend_1yr if trend_1yr else "No trend data available",
+                "sentiment_trend_5yr": trend_5yr[:12] if trend_5yr else "No long-term trend data",
+                "volume_spike_analysis": spike_data if spike_data else "No spike data available",
+                "total_negative_articles": len(negative_news),
+                "total_positive_articles": len(positive_news),
                 "recent_negative_articles": [
                     {
                         "title": a.get("title"),
@@ -92,6 +97,14 @@ class SentimentAgent(BaseAgent):
                         "topics": a.get("topics", []),
                     }
                     for a in negative_news
+                ],
+                "recent_positive_articles": [
+                    {
+                        "title": a.get("title"),
+                        "source": a.get("source_name"),
+                        "date": a.get("published_at"),
+                    }
+                    for a in positive_news
                 ],
             }
 

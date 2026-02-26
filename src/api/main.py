@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from src.agents.orchestrator import investigate
 from src.elasticsearch.client import get_es_client, close_es_client
 from src.elasticsearch.indices import create_all_indices
+from src.elasticsearch.vector_search import semantic_search_news, get_embedding
 from config import get_settings
 
 settings = get_settings()
@@ -158,6 +159,46 @@ async def search_entities(q: str, size: int = 10):
         },
     )
     return JSONResponse(content={"entities": [h["_source"] for h in result["hits"]["hits"]]})
+
+
+@app.delete("/investigations/{investigation_id}")
+async def delete_investigation(investigation_id: str):
+    """Delete a specific investigation by ID."""
+    es = get_es_client()
+    try:
+        await es.delete(index=settings.index_investigations, id=investigation_id)
+        return {"status": "deleted", "investigation_id": investigation_id}
+    except Exception:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+
+@app.delete("/investigations")
+async def delete_all_investigations():
+    """Delete all investigations (cleanup)."""
+    es = get_es_client()
+    await es.delete_by_query(
+        index=settings.index_investigations,
+        body={"query": {"match_all": {}}},
+    )
+    return {"status": "all investigations deleted"}
+
+
+@app.post("/search/semantic")
+async def semantic_search(body: dict):
+    """
+    Semantic vector search across news articles.
+    Showcases Elasticsearch kNN + dense_vector capabilities.
+    Body: { "query": "corporate fraud allegations", "size": 5 }
+    """
+    query = body.get("query", "")
+    size = body.get("size", 5)
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing 'query'")
+    try:
+        results = await semantic_search_news(query, size)
+        return JSONResponse(content={"results": results, "query": query, "search_type": "knn_vector"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/esql")

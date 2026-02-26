@@ -74,8 +74,8 @@ class FinancialSignalAgent(BaseAgent):
                 "going_concern_warnings": going_concern_count,
                 "restatements": restatement_count,
                 "non_clean_audit_opinions": len(qualified_opinions),
-                "financial_trend": trend_rows[:8],  # last 8 years
-                "auditor_history": auditor_rows,
+                "financial_trend": trend_rows[:8] if trend_rows else "No financial trend data available",
+                "auditor_history": auditor_rows if auditor_rows else "No auditor history available",
                 "recent_filings": [
                     {
                         "date": f.get("filing_date"),
