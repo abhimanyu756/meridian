@@ -343,6 +343,42 @@ function handleEvent(event) {
 
 // ===== Past Investigations History =====
 
+var _selectMode = false;
+var _selectedIds = new Set();
+
+function toggleSelectMode(on) {
+    _selectMode = on;
+    _selectedIds.clear();
+    document.getElementById('selectModeBtn').style.display = on ? 'none' : 'flex';
+    document.getElementById('deleteSelectedBtn').style.display = on ? 'flex' : 'none';
+    document.getElementById('cancelSelectBtn').style.display = on ? 'flex' : 'none';
+    document.getElementById('selectedCount').textContent = '0';
+    loadHistory();
+}
+
+function updateSelectedCount() {
+    document.getElementById('selectedCount').textContent = _selectedIds.size;
+}
+
+document.getElementById('selectModeBtn').addEventListener('click', function() {
+    toggleSelectMode(true);
+});
+
+document.getElementById('cancelSelectBtn').addEventListener('click', function() {
+    toggleSelectMode(false);
+});
+
+document.getElementById('deleteSelectedBtn').addEventListener('click', async function() {
+    if (_selectedIds.size === 0) return;
+    if (!confirm('Delete ' + _selectedIds.size + ' selected investigation(s)?')) return;
+    var promises = [];
+    _selectedIds.forEach(function(id) {
+        promises.push(fetch(API_URL + '/investigations/' + id, { method: 'DELETE' }));
+    });
+    await Promise.all(promises);
+    toggleSelectMode(false);
+});
+
 async function loadHistory() {
     var grid = document.getElementById('historyGrid');
     var empty = document.getElementById('historyEmpty');
@@ -352,6 +388,8 @@ async function loadHistory() {
 
         if (!data.investigations || data.investigations.length === 0) {
             empty.style.display = 'block';
+            grid.innerHTML = '';
+            grid.appendChild(empty);
             return;
         }
         empty.style.display = 'none';
@@ -364,10 +402,17 @@ async function loadHistory() {
                 ? new Date(inv.completed_at).toLocaleString()
                 : new Date(inv.started_at).toLocaleString();
             var flags = (inv.red_flags || []).length;
+            var invId = inv.investigation_id;
 
             var card = document.createElement('div');
-            card.className = 'history-card';
+            card.className = 'history-card' + (_selectMode ? ' selectable' : '');
+
+            var checkboxHtml = _selectMode
+                ? '<div class="history-checkbox"></div>'
+                : '';
+
             card.innerHTML =
+                checkboxHtml +
                 '<div class="history-risk-circle ' + level + '">' + score + '</div>' +
                 '<div class="history-info">' +
                     '<div class="history-name">' + inv.target_name + '</div>' +
@@ -377,7 +422,21 @@ async function loadHistory() {
                         '<span class="history-level ' + level + '">' + (inv.risk_level || 'UNKNOWN').toUpperCase() + '</span>' +
                     '</div>' +
                 '</div>';
-            card.addEventListener('click', function() { loadPastInvestigation(inv); });
+
+            if (_selectMode) {
+                card.addEventListener('click', function() {
+                    if (_selectedIds.has(invId)) {
+                        _selectedIds.delete(invId);
+                        card.classList.remove('selected');
+                    } else {
+                        _selectedIds.add(invId);
+                        card.classList.add('selected');
+                    }
+                    updateSelectedCount();
+                });
+            } else {
+                card.addEventListener('click', function() { loadPastInvestigation(inv); });
+            }
             grid.appendChild(card);
         });
     } catch (err) {
