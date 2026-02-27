@@ -99,6 +99,11 @@ function resetAgents() {
         if (findingsEl) findingsEl.textContent = 'Waiting...';
     });
     document.querySelectorAll('.agent-card').forEach(function(c) { c.className = 'agent-card'; });
+    // Reset thoughts
+    agents.forEach(function(id) {
+        var thoughtEl = document.getElementById('thoughts-' + id);
+        if (thoughtEl) { thoughtEl.innerHTML = ''; thoughtEl.classList.remove('active'); }
+    });
     document.getElementById('logEntries').innerHTML = '';
     document.getElementById('riskScore').textContent = '--';
     document.getElementById('riskScore').style.color = 'var(--text-primary)';
@@ -135,6 +140,12 @@ function updateAgentCard(agentName, data) {
     }
     if (card) card.classList.remove('running');
     if (card) card.classList.add('complete');
+
+    // Hide thoughts on complete
+    var thoughtEl = document.getElementById('thoughts-' + id);
+    if (thoughtEl) {
+        setTimeout(function() { thoughtEl.classList.remove('active'); }, 800);
+    }
 
     if (scoreEl && data.risk_score !== undefined) {
         var pct = (data.risk_score / 10) * 100;
@@ -336,9 +347,38 @@ function handleEvent(event) {
             addLog('Investigation complete \u2014 Overall Risk: ' + event.overall_risk_score + '/10 [' + event.risk_level + ']', 'complete');
             break;
 
+        case 'agent_thinking':
+            showAgentThought(event.agent, event.thought);
+            break;
+
         case 'stream_end':
             break;
     }
+}
+
+// Streaming agent thought display with typing effect
+function showAgentThought(agentName, thought) {
+    var id = agentId(agentName);
+    var el = document.getElementById('thoughts-' + id);
+    if (!el) return;
+    el.classList.add('active');
+    // Type out the thought character by character
+    el.innerHTML = '';
+    var i = 0;
+    var cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    el.appendChild(cursor);
+    function typeChar() {
+        if (i < thought.length) {
+            el.insertBefore(document.createTextNode(thought[i]), cursor);
+            i++;
+            setTimeout(typeChar, 15);
+        } else {
+            // remove cursor after done
+            setTimeout(function() { if (cursor.parentNode) cursor.remove(); }, 1500);
+        }
+    }
+    typeChar();
 }
 
 // ===== Past Investigations History =====
@@ -652,6 +692,374 @@ searchForm.addEventListener('submit', function(e) {
         runInvestigation(target).then(function() { loadHistory(); });
     }
 });
+
+// ===== Compare Mode =====
+
+var _compareMode = false;
+var _compareSelected = [];
+var _compareInvestigations = [];
+
+document.getElementById('compareModeBtn').addEventListener('click', function() {
+    _compareMode = true;
+    _compareSelected = [];
+    _compareInvestigations = [];
+    // Switch history to compare-select mode
+    document.getElementById('compareModeBtn').style.display = 'none';
+    document.getElementById('cancelSelectBtn').style.display = 'flex';
+    document.getElementById('selectModeBtn').style.display = 'none';
+    loadHistoryForCompare();
+});
+
+document.getElementById('closeCompare').addEventListener('click', function() {
+    document.getElementById('compareSection').style.display = 'none';
+    _compareMode = false;
+    _compareSelected = [];
+    document.getElementById('compareModeBtn').style.display = 'flex';
+    document.getElementById('cancelSelectBtn').style.display = 'none';
+    document.getElementById('selectModeBtn').style.display = 'flex';
+    loadHistory();
+});
+
+// Override cancel to also handle compare mode
+var origCancelHandler = document.getElementById('cancelSelectBtn').onclick;
+document.getElementById('cancelSelectBtn').addEventListener('click', function() {
+    if (_compareMode) {
+        _compareMode = false;
+        _compareSelected = [];
+        document.getElementById('compareModeBtn').style.display = 'flex';
+        document.getElementById('cancelSelectBtn').style.display = 'none';
+        document.getElementById('selectModeBtn').style.display = 'flex';
+        loadHistory();
+    }
+});
+
+async function loadHistoryForCompare() {
+    var grid = document.getElementById('historyGrid');
+    var empty = document.getElementById('historyEmpty');
+    try {
+        var resp = await fetch(API_URL + '/investigations?size=20');
+        var data = await resp.json();
+        if (!data.investigations || data.investigations.length < 2) {
+            alert('Need at least 2 investigations to compare.');
+            _compareMode = false;
+            document.getElementById('compareModeBtn').style.display = 'flex';
+            document.getElementById('cancelSelectBtn').style.display = 'none';
+            document.getElementById('selectModeBtn').style.display = 'flex';
+            return;
+        }
+        grid.innerHTML = '';
+        empty.style.display = 'none';
+        _compareInvestigations = data.investigations;
+
+        data.investigations.forEach(function(inv, idx) {
+            var level = (inv.risk_level || 'LOW').toLowerCase();
+            var score = (inv.overall_risk_score || 0).toFixed(1);
+            var card = document.createElement('div');
+            card.className = 'history-card selectable';
+            card.innerHTML =
+                '<div class="history-checkbox"></div>' +
+                '<div class="history-risk-circle ' + level + '">' + score + '</div>' +
+                '<div class="history-info">' +
+                    '<div class="history-name">' + inv.target_name + '</div>' +
+                    '<div class="history-meta">' +
+                        '<span class="history-level ' + level + '">' + (inv.risk_level || 'UNKNOWN') + '</span>' +
+                        '<span>Select to compare</span>' +
+                    '</div>' +
+                '</div>';
+
+            card.addEventListener('click', function() {
+                var alreadyIdx = _compareSelected.indexOf(idx);
+                if (alreadyIdx !== -1) {
+                    _compareSelected.splice(alreadyIdx, 1);
+                    card.classList.remove('selected');
+                } else if (_compareSelected.length < 2) {
+                    _compareSelected.push(idx);
+                    card.classList.add('selected');
+                }
+                if (_compareSelected.length === 2) {
+                    showComparison(
+                        _compareInvestigations[_compareSelected[0]],
+                        _compareInvestigations[_compareSelected[1]]
+                    );
+                }
+            });
+            grid.appendChild(card);
+        });
+    } catch (e) {
+        // ignore
+    }
+}
+
+function showComparison(invA, invB) {
+    document.getElementById('compareSection').style.display = 'block';
+    renderCompareCard('compareLeft', invA);
+    renderCompareCard('compareRight', invB);
+    document.getElementById('compareSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Reset compare select
+    _compareMode = false;
+    document.getElementById('compareModeBtn').style.display = 'flex';
+    document.getElementById('cancelSelectBtn').style.display = 'none';
+    document.getElementById('selectModeBtn').style.display = 'flex';
+    loadHistory();
+}
+
+function renderCompareCard(containerId, inv) {
+    var el = document.getElementById(containerId);
+    var score = (inv.overall_risk_score || 0).toFixed(1);
+    var level = (inv.risk_level || 'LOW').toLowerCase();
+    var findings = inv.agent_findings || [];
+
+    var html = '<div class="compare-company-name">' + inv.target_name + '</div>';
+    html += '<div class="compare-risk-row">';
+    html += '<span class="compare-risk-score" style="color:' + riskColor(inv.overall_risk_score || 0) + '">' + score + '</span>';
+    html += '<span class="risk-badge ' + level + '">' + (inv.risk_level || 'UNKNOWN') + '</span>';
+    html += '</div>';
+
+    // Agent breakdown
+    html += '<div class="compare-agents">';
+    findings.forEach(function(af) {
+        if (af.agent_name === 'Risk Synthesis') return;
+        var agentScore = (af.risk_contribution || 0).toFixed(1);
+        html += '<div class="compare-agent-row">';
+        html += '<span class="compare-agent-name">' + af.agent_name + '</span>';
+        html += '<span class="compare-agent-score" style="color:' + riskColor(af.risk_contribution || 0) + '">' + agentScore + '/10</span>';
+        html += '</div>';
+    });
+    html += '</div>';
+
+    // Red flags
+    var flags = inv.red_flags || [];
+    if (flags.length > 0) {
+        html += '<div class="compare-flags">';
+        html += '<h4>Red Flags (' + flags.length + ')</h4>';
+        flags.slice(0, 5).forEach(function(flag) {
+            html += '<div class="compare-flag-item">' + flag + '</div>';
+        });
+        html += '</div>';
+    }
+
+    el.innerHTML = html;
+}
+
+// ===== Corporate Network Graph =====
+
+function renderNetworkGraph(entityFinding) {
+    var container = document.getElementById('networkGraph');
+    if (!container) return;
+
+    var raw = entityFinding.raw_data || entityFinding;
+    var primary = raw.primary_entity || {};
+    var subs = raw.subsidiaries || [];
+    var related = raw.related_entities || [];
+
+    if (!primary.name && subs.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+
+    var nodes = [];
+    var edges = [];
+
+    // Add primary entity
+    var primaryName = primary.name || 'Unknown';
+    nodes.push({ id: 'primary', label: primaryName, type: 'primary', jurisdiction: primary.jurisdiction || '' });
+
+    // Add subsidiaries
+    subs.forEach(function(sub, i) {
+        var subName = sub.name || sub.entity_name || ('Sub ' + (i + 1));
+        var nodeId = 'sub-' + i;
+        nodes.push({ id: nodeId, label: subName, type: 'subsidiary', jurisdiction: sub.jurisdiction || '' });
+        edges.push({ from: 'primary', to: nodeId });
+    });
+
+    // Add related entities
+    related.forEach(function(rel, i) {
+        var relName = rel.name || rel.entity_name || ('Related ' + (i + 1));
+        var nodeId = 'rel-' + i;
+        nodes.push({ id: nodeId, label: relName, type: 'related', jurisdiction: rel.jurisdiction || '' });
+        edges.push({ from: 'primary', to: nodeId });
+    });
+
+    // If only primary node, add placeholder
+    if (nodes.length === 1) {
+        container.innerHTML = '<div class="network-empty">No subsidiaries or related entities found in data.</div>';
+        return;
+    }
+
+    // Layout: primary center, children in circle
+    var width = container.clientWidth || 700;
+    var height = Math.max(320, nodes.length * 30);
+    var cx = width / 2;
+    var cy = height / 2;
+    var radius = Math.min(width, height) * 0.35;
+
+    // Position nodes
+    nodes[0].x = cx;
+    nodes[0].y = cy;
+    var childNodes = nodes.slice(1);
+    childNodes.forEach(function(n, i) {
+        var angle = (2 * Math.PI * i) / childNodes.length - Math.PI / 2;
+        n.x = cx + radius * Math.cos(angle);
+        n.y = cy + radius * Math.sin(angle);
+    });
+
+    // Build SVG
+    var svg = '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">';
+
+    // Draw edges
+    edges.forEach(function(e) {
+        var from = nodes.find(function(n) { return n.id === e.from; });
+        var to = nodes.find(function(n) { return n.id === e.to; });
+        if (from && to) {
+            svg += '<line x1="' + from.x + '" y1="' + from.y + '" x2="' + to.x + '" y2="' + to.y + '" stroke="rgba(99,102,241,0.3)" stroke-width="1.5" stroke-dasharray="4,4"/>';
+        }
+    });
+
+    // Draw nodes
+    nodes.forEach(function(n) {
+        var r = n.type === 'primary' ? 32 : 22;
+        var fill = n.type === 'primary' ? 'rgba(99,102,241,0.15)' :
+                   n.type === 'subsidiary' ? 'rgba(6,182,212,0.1)' : 'rgba(234,179,8,0.1)';
+        var stroke = n.type === 'primary' ? '#6366f1' :
+                     n.type === 'subsidiary' ? '#06b6d4' : '#eab308';
+        svg += '<circle cx="' + n.x + '" cy="' + n.y + '" r="' + r + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
+
+        // Label
+        var label = n.label.length > 18 ? n.label.substring(0, 16) + '...' : n.label;
+        var fontSize = n.type === 'primary' ? 11 : 9;
+        svg += '<text x="' + n.x + '" y="' + (n.y + r + 14) + '" text-anchor="middle" fill="#94a3b8" font-size="' + fontSize + '" font-family="Inter,sans-serif" font-weight="600">' + label + '</text>';
+
+        // Jurisdiction tag
+        if (n.jurisdiction) {
+            var jurLabel = n.jurisdiction.length > 12 ? n.jurisdiction.substring(0, 10) + '..' : n.jurisdiction;
+            svg += '<text x="' + n.x + '" y="' + (n.y + r + 26) + '" text-anchor="middle" fill="#64748b" font-size="8" font-family="JetBrains Mono,monospace">' + jurLabel + '</text>';
+        }
+
+        // Type icon in node
+        var icon = n.type === 'primary' ? 'HQ' : n.type === 'subsidiary' ? 'SUB' : 'REL';
+        svg += '<text x="' + n.x + '" y="' + (n.y + 4) + '" text-anchor="middle" fill="' + stroke + '" font-size="' + (n.type === 'primary' ? 10 : 8) + '" font-family="JetBrains Mono,monospace" font-weight="700">' + icon + '</text>';
+    });
+
+    svg += '</svg>';
+
+    // Legend
+    var legend = '<div class="network-legend">' +
+        '<span class="legend-item"><span class="legend-dot" style="background:#6366f1"></span>Headquarters</span>' +
+        '<span class="legend-item"><span class="legend-dot" style="background:#06b6d4"></span>Subsidiary</span>' +
+        '<span class="legend-item"><span class="legend-dot" style="background:#eab308"></span>Related</span>' +
+        '</div>';
+
+    container.innerHTML = legend + '<div class="network-svg-wrap">' + svg + '</div>';
+}
+
+// ===== Real-time News Monitor =====
+
+var _newsWatchInterval = null;
+var _newsWatchTarget = null;
+var _lastNewsCount = 0;
+
+function startNewsWatch(target) {
+    stopNewsWatch();
+    _newsWatchTarget = target;
+    _lastNewsCount = 0;
+    var watchPanel = document.getElementById('newsWatchPanel');
+    if (watchPanel) {
+        watchPanel.style.display = 'block';
+        document.getElementById('watchTarget').textContent = target;
+        document.getElementById('watchStatus').textContent = 'Monitoring...';
+        document.getElementById('watchStatus').className = 'watch-status active';
+        document.getElementById('newsAlerts').innerHTML = '';
+    }
+
+    // Initial check
+    checkForNews(target);
+
+    // Poll every 30 seconds
+    _newsWatchInterval = setInterval(function() {
+        checkForNews(target);
+    }, 30000);
+}
+
+function stopNewsWatch() {
+    if (_newsWatchInterval) {
+        clearInterval(_newsWatchInterval);
+        _newsWatchInterval = null;
+    }
+    _newsWatchTarget = null;
+    var watchPanel = document.getElementById('newsWatchPanel');
+    if (watchPanel) {
+        document.getElementById('watchStatus').textContent = 'Stopped';
+        document.getElementById('watchStatus').className = 'watch-status stopped';
+    }
+}
+
+async function checkForNews(target) {
+    try {
+        var escapedTarget = target.replace(/"/g, '\\"');
+        var query = 'FROM meridian-news | WHERE entity_names LIKE "*' + escapedTarget + '*" | STATS total = COUNT(*), neg = SUM(CASE(sentiment_label == "negative", 1, 0)), recent = SUM(CASE(published_at >= NOW() - 7 days, 1, 0))';
+        var resp = await fetch(API_URL + '/esql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: query }),
+        });
+        var data = await resp.json();
+        var values = (data && data.values && data.values[0]) || [0, 0, 0];
+        var total = values[0] || 0;
+        var neg = values[1] || 0;
+        var recent = values[2] || 0;
+
+        var alertsEl = document.getElementById('newsAlerts');
+        if (!alertsEl) return;
+
+        // Update watch stats
+        document.getElementById('watchTotal').textContent = total;
+        document.getElementById('watchRecent').textContent = recent;
+        document.getElementById('watchNegative').textContent = neg;
+
+        // Check for new articles since last check
+        if (_lastNewsCount > 0 && total > _lastNewsCount) {
+            var diff = total - _lastNewsCount;
+            var alertDiv = document.createElement('div');
+            alertDiv.className = 'news-alert';
+            var time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            alertDiv.innerHTML = '<span class="alert-time">' + time + '</span><span class="alert-text">' + diff + ' new article(s) detected for ' + target + '</span>';
+            alertsEl.prepend(alertDiv);
+        }
+
+        _lastNewsCount = total;
+        document.getElementById('watchLastCheck').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+    } catch (e) {
+        // silently continue
+    }
+}
+
+// Watch button handler
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'startWatchBtn' || e.target.closest('#startWatchBtn')) {
+        var target = document.getElementById('targetName').textContent;
+        if (target) startNewsWatch(target);
+    }
+    if (e.target.id === 'stopWatchBtn' || e.target.closest('#stopWatchBtn')) {
+        stopNewsWatch();
+    }
+});
+
+// Hook into investigation complete to show network graph
+var _origShowFinalResults = showFinalResults;
+showFinalResults = function(data) {
+    _origShowFinalResults(data);
+
+    // Show network graph if entity findings available
+    if (data.agent_findings) {
+        var entityF = data.agent_findings.find(function(f) { return f.agent_name === 'Entity Discovery'; });
+        if (entityF) {
+            renderNetworkGraph(entityF);
+        }
+    }
+};
 
 // Empty input on load
 targetInput.value = '';

@@ -66,10 +66,13 @@ async def investigate(
 
     # --- Phase 1: Entity Discovery (must run first to get entity_id for other agents) ---
     yield {"event": "agent_started", "agent": "Entity Discovery"}
+    yield {"event": "agent_thinking", "agent": "Entity Discovery", "thought": "Searching Elasticsearch for entity records..."}
 
     entity_agent = EntityDiscoveryAgent()
+    yield {"event": "agent_thinking", "agent": "Entity Discovery", "thought": "Running hybrid BM25 + fuzzy search on entity index..."}
     entity_finding = await entity_agent.run(target, {})
     entity_id = entity_finding.raw_data.get("primary_entity", {}).get("entity_id", "")
+    yield {"event": "agent_thinking", "agent": "Entity Discovery", "thought": "Found entity. Mapping corporate structure and subsidiaries..."}
 
     yield {
         "event": "agent_complete",
@@ -93,14 +96,25 @@ async def investigate(
         GeoJurisdictionAgent(),
     ]
 
+    # Emit agent_started with thinking for all
+    thinking_messages = {
+        "Financial Signal": "Querying ES|QL for financial trends, auditor changes, SEC filings...",
+        "Legal Intelligence": "Running ES|QL legal exposure aggregation, searching court records...",
+        "Executive Background": "Searching nested employment history, PEP screening...",
+        "Sentiment & Narrative": "Running ES|QL sentiment trends, analyzing news volume spikes...",
+        "Geo & Jurisdiction": "Running ES|QL geo risk breakdown, checking sanctioned jurisdictions...",
+    }
+
     for agent in batch_1 + batch_2:
         yield {"event": "agent_started", "agent": agent.name}
+        yield {"event": "agent_thinking", "agent": agent.name, "thought": thinking_messages.get(agent.name, "Analyzing...")}
 
     # Batch 1: run 3 agents
     tasks_1 = [agent.run(target, shared_context) for agent in batch_1]
     findings_1: list[AgentFinding] = await asyncio.gather(*tasks_1)
 
     for finding in findings_1:
+        yield {"event": "agent_thinking", "agent": finding.agent_name, "thought": "Gemini reasoning complete. Generating findings..."}
         yield {
             "event": "agent_complete",
             "agent": finding.agent_name,
@@ -117,6 +131,7 @@ async def investigate(
     findings_2: list[AgentFinding] = await asyncio.gather(*tasks_2)
 
     for finding in findings_2:
+        yield {"event": "agent_thinking", "agent": finding.agent_name, "thought": "Gemini reasoning complete. Generating findings..."}
         yield {
             "event": "agent_complete",
             "agent": finding.agent_name,
@@ -129,6 +144,7 @@ async def investigate(
 
     # --- Phase 3: Risk Synthesis (final agent) ---
     yield {"event": "agent_started", "agent": "Risk Synthesis"}
+    yield {"event": "agent_thinking", "agent": "Risk Synthesis", "thought": "Collecting all agent findings, computing weighted risk score..."}
 
     all_findings = [entity_finding] + list(specialist_findings)
     synthesis_context = {

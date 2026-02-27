@@ -121,6 +121,10 @@
                     Past Investigations
                 </h2>
                 <div class="history-actions">
+                    <button class="history-action-btn compare-btn" id="compareModeBtn" title="Compare two investigations">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                        Compare
+                    </button>
                     <button class="history-action-btn select-btn" id="selectModeBtn" title="Select investigations to delete">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                         Select
@@ -218,6 +222,7 @@
                     </div>
                 </div>
                 <div class="agent-score-bar"><div class="agent-score-fill" id="score-entity-discovery"></div></div>
+                <div class="agent-thoughts" id="thoughts-entity-discovery"></div>
                 <div class="agent-findings" id="findings-entity-discovery">Waiting...</div>
             </div>
 
@@ -235,6 +240,7 @@
                     </div>
                 </div>
                 <div class="agent-score-bar"><div class="agent-score-fill" id="score-financial-signal"></div></div>
+                <div class="agent-thoughts" id="thoughts-financial-signal"></div>
                 <div class="agent-findings" id="findings-financial-signal">Waiting...</div>
             </div>
 
@@ -252,6 +258,7 @@
                     </div>
                 </div>
                 <div class="agent-score-bar"><div class="agent-score-fill" id="score-legal-intelligence"></div></div>
+                <div class="agent-thoughts" id="thoughts-legal-intelligence"></div>
                 <div class="agent-findings" id="findings-legal-intelligence">Waiting...</div>
             </div>
 
@@ -269,6 +276,7 @@
                     </div>
                 </div>
                 <div class="agent-score-bar"><div class="agent-score-fill" id="score-executive-background"></div></div>
+                <div class="agent-thoughts" id="thoughts-executive-background"></div>
                 <div class="agent-findings" id="findings-executive-background">Waiting...</div>
             </div>
 
@@ -286,6 +294,7 @@
                     </div>
                 </div>
                 <div class="agent-score-bar"><div class="agent-score-fill" id="score-sentiment-narrative"></div></div>
+                <div class="agent-thoughts" id="thoughts-sentiment-narrative"></div>
                 <div class="agent-findings" id="findings-sentiment-narrative">Waiting...</div>
             </div>
 
@@ -303,8 +312,40 @@
                     </div>
                 </div>
                 <div class="agent-score-bar"><div class="agent-score-fill" id="score-geo-jurisdiction"></div></div>
+                <div class="agent-thoughts" id="thoughts-geo-jurisdiction"></div>
                 <div class="agent-findings" id="findings-geo-jurisdiction">Waiting...</div>
             </div>
+        </div>
+
+        <!-- Corporate Network Graph -->
+        <div class="network-graph-section" id="networkGraph" style="display:none">
+            <div class="network-graph-header">
+                <h2>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>
+                    Corporate Network Graph
+                </h2>
+            </div>
+        </div>
+
+        <!-- Real-time News Watch -->
+        <div class="news-watch-panel" id="newsWatchPanel" style="display:none">
+            <div class="news-watch-header">
+                <h3>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    News Monitor — <span id="watchTarget"></span>
+                </h3>
+                <div class="watch-controls">
+                    <span class="watch-status" id="watchStatus">Stopped</span>
+                    <button class="watch-btn stop" id="stopWatchBtn">Stop</button>
+                </div>
+            </div>
+            <div class="watch-stats">
+                <div class="watch-stat"><span class="watch-stat-value" id="watchTotal">0</span><span class="watch-stat-label">Total Articles</span></div>
+                <div class="watch-stat"><span class="watch-stat-value" id="watchRecent">0</span><span class="watch-stat-label">Last 7 Days</span></div>
+                <div class="watch-stat"><span class="watch-stat-value negative" id="watchNegative">0</span><span class="watch-stat-label">Negative</span></div>
+                <div class="watch-stat"><span class="watch-stat-value" id="watchLastCheck">--</span><span class="watch-stat-label">Last Check</span></div>
+            </div>
+            <div class="news-alerts" id="newsAlerts"></div>
         </div>
 
         <!-- Executive Summary -->
@@ -314,10 +355,16 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
                     Executive Summary
                 </h2>
-                <button class="download-btn" id="downloadReport" title="Download Report">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Download Report
-                </button>
+                <div class="summary-actions">
+                    <button class="watch-btn start" id="startWatchBtn" title="Monitor real-time news">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                        Watch News
+                    </button>
+                    <button class="download-btn" id="downloadReport" title="Download Report">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download Report
+                    </button>
+                </div>
             </div>
             <div class="summary-content" id="summaryContent"></div>
             <div class="recommended-actions" id="recommendedActions"></div>
@@ -330,6 +377,24 @@
                 Agent Activity Log
             </h3>
             <div class="log-entries" id="logEntries"></div>
+        </div>
+    </section>
+
+    <!-- Compare Mode Section (hidden) -->
+    <section class="compare-section" id="compareSection" style="display:none">
+        <div class="compare-header">
+            <h2>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                Compare Investigations
+            </h2>
+            <button class="history-action-btn cancel-select-btn" id="closeCompare">Close</button>
+        </div>
+        <div class="compare-grid">
+            <div class="compare-card" id="compareLeft"></div>
+            <div class="compare-divider">
+                <span class="compare-vs">VS</span>
+            </div>
+            <div class="compare-card" id="compareRight"></div>
         </div>
     </section>
 
